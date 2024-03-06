@@ -43,6 +43,9 @@ class Connection:
     
     def listAllDomains(self):
         return self.conn.listAllDomains()
+    
+    def listAllActiveDomains(self):
+        return [dom for dom in self.listAllDomains() if dom.ID() > 0]
         
     def lookupByName(self, domainName):
         return self.conn.lookupByName(domainName)
@@ -88,11 +91,13 @@ class Domain:
 
 class Driver:
     @staticmethod
-    def unique_macs(conn):
+    def unique_macs(conn, active_only = True):
         macs = {}
         conflict = {}
-        
-        domains = conn.listAllDomains()
+        if active_only:
+            domains = conn.listAllActiveDomains()
+        else:
+            domains = conn.listAllDomains()
         if domains is None:
             print("Failed to get list of domains")
         
@@ -144,7 +149,7 @@ def main():
     conn = Connection()
     conn.connect()
 
-    Driver.unique_macs(conn)
+    Driver.unique_macs(conn, active_only=True)
 
     conn.disconnect()
 
