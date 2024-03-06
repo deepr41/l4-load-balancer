@@ -1,0 +1,63 @@
+---
+- name: Create a VM with libvirt/KVM/QEMU and configure with Cloud-Init
+  hosts: localhost
+  gather_facts: yes
+  vars_files:
+    - vars.yaml
+  vars:
+    base_image_path: /var/lib/libvirt/images/jammy-server-cloudimg-amd64.img
+    base_vm_path: /var/lib/libvirt/images
+
+  tasks:
+    - name: Set VM variables
+      ansible.builtin.set_fact:
+        vm: "{{vm1}}"
+
+    - name: Create directory to store VM
+      command: mkdir -p {{base_vm_path}}/{{vm.vm_name}}
+      become: yes
+
+    - name: Create QCOW2 disk image with a backing file
+      command: qemu-img create -f qcow2 -F qcow2 -o backing_file={{ base_image_path }} {{base_vm_path}}/{{vm.vm_name}}/{{vm.vm_name}}.qcow2
+      become: yes
+
+    - name: Resize QCOW2 disk image
+      command: qemu-img resize {{base_vm_path}}/{{vm.vm_name}}/{{vm.vm_name}}.qcow2 {{ vm.disk_size }}
+      become: yes
+
+    - name: Create directory to store VM
+      command: mkdir -p "{{base_vm_path}}/{{vm.vm_name}}/"
+      become: yes
+
+    - name: Generate user-data
+      ansible.builtin.template:
+        src: templates/user-data.j2
+        dest: "{{base_vm_path}}/{{vm.vm_name}}/user-data"
+      become: yes
+
+    - name: Generate meta-data
+      ansible.builtin.template:
+        src: templates/meta-data.j2
+        dest: "{{base_vm_path}}/{{vm.vm_name}}/meta-data"
+      become: yes
+    - name: Generate Cloud-Init ISO
+      command: genisoimage -output "{{base_vm_path}}/{{vm.vm_name}}/{{vm.vm_name}}-cidata.iso" -volid cidata -joliet -rock user-data meta-data
+      args:
+        chdir: "{{base_vm_path}}/{{vm.vm_name}}"
+      become: yes
+
+    - name: Define a new VM
+      community.libvirt.virt:
+        command: define
+        name: "{{ vm.vm_name }}"
+        xml: "{{ lookup('template', './templates/vm-template.j2')}}"
+      register: define_vm
+
+    - name: Setup firstboot scripts
+      command: virt-sysprep -d {{ vm.vm_name }} --firstboot-command "{{ vm.startup_script }} {{vm.startup_task}}"
+      become: yes
+
+    - name: Start the VM
+      community.libvirt.virt:
+        command: start
+        name: "{{ vm.vm_name }}"

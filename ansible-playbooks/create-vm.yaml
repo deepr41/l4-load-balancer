@@ -1,0 +1,64 @@
+---
+- name: Create a VM with libvirt/KVM/QEMU and configure with Cloud-Init
+  hosts: localhost
+  gather_facts: no
+  vars:
+    vm_name: "testing"
+    disk_image_path: "/var/lib/libvirt/images/{{ vm_name }}.qcow2"
+    cloud_init_iso_path: "/var/lib/libvirt/images/{{ vm_name }}-cidata.iso"
+    cloud_init_config_path: "/path/to/your/cloud-init/configs/"
+    disk_size: "12G"
+    memory_size: "1GiB"
+    vcpus: 1
+    base_image_path: "/var/lib/libvirt/images/base.qcow2" # Path to the base QCOW2 image
+  tasks:
+    - name: Create QCOW2 disk image with a backing file
+      command: qemu-img create -f qcow2 -o backing_file={{ base_image_path }} {{ disk_image_path }} {{ disk_size }}
+      become: yes
+      when: not ansible_check_mode
+
+    - name: Define a new VM
+      community.general.virt:
+        command: define
+        name: "{{ vm_name }}"
+        xml: |
+          <domain type='kvm'>
+            <name>{{ vm_name }}</name>
+            <memory unit='GiB'>{{ memory_size }}</memory>
+            <vcpu>{{ vcpus }}</vcpu>
+            <os>
+              <type arch='x86_64'>hvm</type>
+            </os>
+            <devices>
+              <disk type='file' device='disk'>
+                <driver name='qemu' type='qcow2'/>
+                <source file='{{ disk_image_path }}'/>
+                <target dev='vda' bus='virtio'/>
+              </disk>
+              <disk type='file' device='cdrom'>
+                <driver name='qemu' type='raw'/>
+                <source file='{{ cloud_init_iso_path }}'/>
+                <target dev='hdc' bus='ide'/>
+                <readonly/>
+              </disk>
+              <interface type='network'>
+                <source network='default'/>
+                <model type='virtio'/>
+              </interface>
+              <graphics type='spice' port='-1' autoport='yes'/>
+            </devices>
+          </domain>
+      register: define_vm
+
+    - name: Generate Cloud-Init ISO
+      command: genisoimage -output "{{ cloud_init_iso_path }}" -volid cidata -joliet -rock user-data meta-data
+      args:
+        chdir: "{{ cloud_init_config_path }}"
+      become: yes
+      when: define_vm.changed
+
+    - name: Start the VM
+      community.general.virt:
+        command: start
+        name: "{{ vm_name }}"
+      when: define_vm.changed

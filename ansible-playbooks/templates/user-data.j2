@@ -1,0 +1,41 @@
+#cloud-config
+disable_root: false
+users:
+  - default
+  - name: root
+    ssh-authorized-keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCe8TEdgNZFJrumjp3bJTKXZzkHQMccMDL7ZyEfAl/7bZD0es864gNy0AiSOjIDgaUSFbwJh0iXaMkf0Yx5xnmT+GVVDWv1JDmRQ/dy1ksQ6PwaN3vmdO52EqgvXme2rXN/TsbOKXKj7Jp18hABt8UKAEoLyyucchb+A3hfMw5fGCbPsjnw63YWQNFoWN/hLsAmjJHjmw6hUy6pFo91eG0oDCEbWGJyia6wnmT+zZUSbaBZY6OF4hwEu550nRGcqjdvjXSeUr7d9MQvuYf4ic0/nla1r0AZNvPWXkcka7FuEp/JAMFe0mBQ8SdsHx59A3nHWqfk8C35QCrKnf9but6Z vmadm@lnVM17
+    lock_passwd: false
+    plain_text_passwd: test
+  - name: deep
+    ssh-authorized-keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCe8TEdgNZFJrumjp3bJTKXZzkHQMccMDL7ZyEfAl/7bZD0es864gNy0AiSOjIDgaUSFbwJh0iXaMkf0Yx5xnmT+GVVDWv1JDmRQ/dy1ksQ6PwaN3vmdO52EqgvXme2rXN/TsbOKXKj7Jp18hABt8UKAEoLyyucchb+A3hfMw5fGCbPsjnw63YWQNFoWN/hLsAmjJHjmw6hUy6pFo91eG0oDCEbWGJyia6wnmT+zZUSbaBZY6OF4hwEu550nRGcqjdvjXSeUr7d9MQvuYf4ic0/nla1r0AZNvPWXkcka7FuEp/JAMFe0mBQ8SdsHx59A3nHWqfk8C35QCrKnf9but6Z vmadm@lnVM17
+    lock_passwd: false
+    plain_text_passwd: test
+write_files:
+  - path: /etc/netplan/50-cloud-init.yaml
+    content: |
+      network:
+          version: 2
+          ethernets:
+{% for interface in vm.interfaces %}
+              enp0s{{interface.slot_id}}:
+                  dhcp4: false
+                  addresses: [ {{ interface.ip_addr }} ]
+                  match:
+                      macaddress: "{{interface.mac_addr}}"
+{% if interface.default %}
+                  routes:
+                      - to: default
+                        via: "{{interface.ip_gateway}}"
+                  nameservers:
+                      addresses: [ 8.8.8.8, 8.8.4.4 ]
+{% endif %}
+{% endfor %}
+
+{% if %}
+runcmd: |
+  - echo "Hello world"
+{% endif %}
+
+    
