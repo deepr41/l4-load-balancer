@@ -12,7 +12,7 @@
     - name: Debug val
       ansible.builtin.debug:
         msg: "{{item}}"
-      loop: "{{vms}}"
+      with_items: "{{vms}}"
 
     - name: Create directory to store VM
       command: mkdir -p {{base_vm_path}}/{{item.vm_name}}
