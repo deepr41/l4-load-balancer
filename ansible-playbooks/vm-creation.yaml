@@ -3,61 +3,73 @@
   hosts: localhost
   gather_facts: yes
   vars_files:
-    - vars.yaml
+    - vars/vms.yaml
   vars:
     base_image_path: /var/lib/libvirt/images/jammy-server-cloudimg-amd64.img
     base_vm_path: /var/lib/libvirt/images
 
   tasks:
-    - name: Set VM variables
-      ansible.builtin.set_fact:
-        vm: "{{vm1}}"
+    - name: Debug val
+      ansible.builtin.debug:
+        msg: "{{item}}"
+      loop: "{{vms}}"
 
     - name: Create directory to store VM
-      command: mkdir -p {{base_vm_path}}/{{vm.vm_name}}
+      command: mkdir -p {{base_vm_path}}/{{item.vm_name}}
       become: yes
+      with_items: "{{vms}}"
 
     - name: Create QCOW2 disk image with a backing file
-      command: qemu-img create -f qcow2 -F qcow2 -o backing_file={{ base_image_path }} {{base_vm_path}}/{{vm.vm_name}}/{{vm.vm_name}}.qcow2
+      command: qemu-img create -f qcow2 -F qcow2 -o backing_file={{ base_image_path }} {{base_vm_path}}/{{item.vm_name}}/{{item.vm_name}}.qcow2
       become: yes
+      with_items: "{{vms}}"
 
     - name: Resize QCOW2 disk image
-      command: qemu-img resize {{base_vm_path}}/{{vm.vm_name}}/{{vm.vm_name}}.qcow2 {{ vm.disk_size }}
+      command: qemu-img resize {{base_vm_path}}/{{item.vm_name}}/{{item.vm_name}}.qcow2 {{ item.disk_size }}
       become: yes
+      with_items: "{{vms}}"
 
     - name: Create directory to store VM
-      command: mkdir -p "{{base_vm_path}}/{{vm.vm_name}}/"
+      command: mkdir -p "{{base_vm_path}}/{{item.vm_name}}/"
       become: yes
+      with_items: "{{vms}}"
 
     - name: Generate user-data
       ansible.builtin.template:
         src: templates/user-data.j2
-        dest: "{{base_vm_path}}/{{vm.vm_name}}/user-data"
+        dest: "{{base_vm_path}}/{{item.vm_name}}/user-data"
       become: yes
+      with_items: "{{vms}}"
 
     - name: Generate meta-data
       ansible.builtin.template:
         src: templates/meta-data.j2
-        dest: "{{base_vm_path}}/{{vm.vm_name}}/meta-data"
+        dest: "{{base_vm_path}}/{{item.vm_name}}/meta-data"
       become: yes
+      with_items: "{{vms}}"
+
     - name: Generate Cloud-Init ISO
-      command: genisoimage -output "{{base_vm_path}}/{{vm.vm_name}}/{{vm.vm_name}}-cidata.iso" -volid cidata -joliet -rock user-data meta-data
+      command: genisoimage -output "{{base_vm_path}}/{{item.vm_name}}/{{item.vm_name}}-cidata.iso" -volid cidata -joliet -rock user-data meta-data
       args:
-        chdir: "{{base_vm_path}}/{{vm.vm_name}}"
+        chdir: "{{base_vm_path}}/{{item.vm_name}}"
       become: yes
+      with_items: "{{vms}}"
 
     - name: Define a new VM
       community.libvirt.virt:
         command: define
-        name: "{{ vm.vm_name }}"
+        name: "{{ item.vm_name }}"
         xml: "{{ lookup('template', './templates/vm-template.j2')}}"
       register: define_vm
+      with_items: "{{vms}}"
 
     - name: Setup firstboot scripts
-      command: virt-sysprep -d {{ vm.vm_name }} --firstboot-command "{{ vm.startup_script }} {{vm.startup_task}}"
+      command: virt-sysprep -d {{ item.vm_name }} --firstboot-command "{{ item.startup_script }} {{item.startup_task}}"
       become: yes
+      with_items: "{{vms}}"
 
     - name: Start the VM
       community.libvirt.virt:
         command: start
-        name: "{{ vm.vm_name }}"
+        name: "{{ item.vm_name }}"
+      with_items: "{{vms}}"

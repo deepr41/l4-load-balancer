@@ -1,0 +1,29 @@
+vms:
+  # VM info
+  - vm_name: "vm3"
+    disk_size: 12G
+    memory_size: 1
+    vcpus: 1
+    startup_task: "&& apt update && apt install iperf3 wireshark -y"
+    startup_script: "netplan generate && netplan apply"
+    # network interfaces
+    interfaces:
+      - slot_id: 5
+        is_ovs: false
+        model: virtio
+        mac_addr: 52:54:00:42:be:ae
+        ip_addr: 192.168.122.10/24
+        ip_gateway: 192.168.122.1/24
+        type: network
+        source: default
+        default: true
+
+      - slot_id: 6
+        is_ovs: false
+        model: virtio
+        mac_addr: 52:54:00:42:be:af
+        ip_addr: 192.168.122.11/24
+        type: network
+        source: default
+        default: false
+  # - vm_name: vm1

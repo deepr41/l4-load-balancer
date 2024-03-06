@@ -18,7 +18,7 @@ write_files:
       network:
           version: 2
           ethernets:
-{% for interface in vm.interfaces %}
+{% for interface in item.interfaces %}
               enp0s{{interface.slot_id}}:
                   dhcp4: false
                   addresses: [ {{ interface.ip_addr }} ]
@@ -33,7 +33,7 @@ write_files:
 {% endif %}
 {% endfor %}
 
-{% if %}
+{% if False %}
 runcmd: |
   - echo "Hello world"
 {% endif %}
