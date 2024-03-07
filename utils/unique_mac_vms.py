@@ -23,10 +23,10 @@ class Utils:
 
 class Connection:
     def __init__(self):
-        self.conn = None
+        self.uri = 'qemu:///system'
 
     def connect(self):
-        self.conn = libvirt.open('qemu:///system')
+        self.conn = libvirt.open(self.uri)
         
         if self.conn:
             print("Connection established")
@@ -101,7 +101,6 @@ class Driver:
         if domains is None:
             print("Failed to get list of domains")
         
-
         for dom in domains:
             xml_root = ET.fromstring(dom.XMLDesc(0))
 
